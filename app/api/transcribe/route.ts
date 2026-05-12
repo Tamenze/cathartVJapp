@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (quota.isBlocked || quota.allowedMinutes < minutesUsed * 0.9) {
+    console.log(JSON.stringify({ event: "quota_hit", durationSeconds, minutesUsed }));
     return NextResponse.json(
       { error: "Daily reflection limit reached. Try again tomorrow." },
       { status: 429 }
@@ -57,6 +58,7 @@ export async function POST(req: NextRequest) {
     // so require at least 2 distinct words, not just a non-empty string.
     const wordCount = transcription.text.trim().split(/\s+/).filter(Boolean).length;
     if (wordCount < 5) {
+      console.log(JSON.stringify({ event: "recording_rejected_no_speech", durationSeconds, wordCount }));
       return NextResponse.json(
         { error: "No speech detected in this recording." },
         { status: 422 }
@@ -68,6 +70,7 @@ export async function POST(req: NextRequest) {
       console.error("Quota increment failed:", err)
     );
 
+    console.log(JSON.stringify({ event: "recording_submitted", durationSeconds, wordCount, minutesUsed }));
     return NextResponse.json({
       transcript: transcription.text,
       minutesUsed,

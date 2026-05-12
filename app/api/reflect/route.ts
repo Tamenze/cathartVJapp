@@ -95,16 +95,19 @@ export async function POST(req: NextRequest) {
     const raw = completion.choices[0]?.message?.content ?? "{}";
     const parsed = JSON.parse(raw) as Partial<ReflectResponse>;
 
-    return NextResponse.json({
+    const result = {
       summary: parsed.summary ?? "A moment of reflection",
       response: parsed.response ?? "Here's what you shared.",
       actionItems: Array.isArray(parsed.actionItems) ? parsed.actionItems : [],
       patterns: Array.isArray(parsed.patterns) ? parsed.patterns : [],
       suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions : [],
       category: parsed.category ?? "reflection",
-    } satisfies ReflectResponse);
+    } satisfies ReflectResponse;
+
+    console.log(JSON.stringify({ event: "reflection_completed", category: result.category }));
+    return NextResponse.json(result);
   } catch (err) {
-    console.error("Reflection error:", err);
+    console.error(JSON.stringify({ event: "reflection_failed", error: err instanceof Error ? err.message : "unknown" }));
     return NextResponse.json(
       { error: "Reflection generation failed." },
       { status: 500 }
