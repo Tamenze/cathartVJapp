@@ -120,7 +120,6 @@ export function WordCloud({ entries, onWordClick, selectedWord }: Props) {
   const [hoveredWord, setHoveredWord] = useState<string | null>(null);
   const isLight = useIsLight();
 
-  // Only show ranges where there are entries older than the previous threshold
   const availableRanges = useMemo<Range[]>(() => {
     const ranges: Range[] = [7];
     if (entries.some((e) => new Date(e.createdAt) < sinceDate(7))) ranges.push(30);
@@ -149,7 +148,6 @@ export function WordCloud({ entries, onWordClick, selectedWord }: Props) {
 
   return (
     <div className="space-y-3">
-      {/* Range selector — only shows options with entries beyond the previous threshold */}
       {availableRanges.length > 1 && (
         <div className="flex items-center gap-1">
           {availableRanges.map((r) => (
@@ -170,7 +168,6 @@ export function WordCloud({ entries, onWordClick, selectedWord }: Props) {
       )}
 
 
-      {/* Cloud */}
       {placed.length === 0 ? (
         <p className="text-stone-400 text-sm py-6 text-center">
           No entries in the last {range} days.

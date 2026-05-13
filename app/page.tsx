@@ -41,7 +41,6 @@ export default function Home() {
   const [journalPage, setJournalPage] = useState(0);
   const pendingRef = useRef<{ transcript: string; durationSeconds: number } | null>(null);
 
-  // Load quota once on mount
   const quotaLoadedRef = useRef(false);
   useEffect(() => {
     if (!quotaLoadedRef.current) {
@@ -58,7 +57,6 @@ export default function Home() {
 
   const maxSeconds = Math.floor(quota.allowedMinutes * 60);
 
-  // ── Tab navigation — clears word filter when leaving themes ──────────────
   const handleViewChange = useCallback((v: View) => {
     setView(v);
     if (v !== "words") {
@@ -68,7 +66,6 @@ export default function Home() {
     setDeleteAllConfirm(false);
   }, []);
 
-  // ── Shared: run reflection + save ────────────────────────────────────────
   const runReflectAndSave = useCallback(
     async (transcript: string, durationSeconds: number) => {
       const userId = getUserId();
@@ -112,7 +109,6 @@ export default function Home() {
     [refreshQuota]
   );
 
-  // ── Called only when user explicitly submits — transcribes + reflects ────
   const handleRecordingComplete = useCallback(
     async (blob: Blob, durationSeconds: number) => {
       setErrorMsg(null);
@@ -163,7 +159,6 @@ export default function Home() {
     };
   }, [quota, recorder.state, recorder.elapsedSeconds]);
 
-  // Filtered entries for Themes tab word filter
   const filteredEntries = useMemo(() => {
     if (!filterWord) return entries;
     const re = new RegExp(`\\b${filterWord}\\b`, "i");
@@ -182,7 +177,6 @@ export default function Home() {
     (journalPage + 1) * JOURNAL_PAGE_SIZE
   );
 
-  // Load past entries on mount
   useEffect(() => {
     db.entries.orderBy("createdAt").reverse().toArray().then(setEntries).catch(console.error);
   }, []);
@@ -234,7 +228,6 @@ export default function Home() {
 
   const isBlocked = quota.isBlocked || maxSeconds <= 0;
 
-  // Auto-reset recorder after a successful save
   useEffect(() => {
     if (pageState !== "done") return;
     recorder.reset();

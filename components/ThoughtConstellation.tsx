@@ -1,11 +1,4 @@
-// ═══════════════════════════════════════════════════════════════
-// [EXPERIMENTAL] ThoughtConstellation
-// Visualizes recurring psychological/emotional concepts extracted
-// from journal entries as a floating node constellation.
-//
-// Feature flag: CONSTELLATION_ENABLED = false to hide entirely.
-// Rollback: remove import + <ThoughtConstellation> from page.tsx
-// ═══════════════════════════════════════════════════════════════
+// [EXPERIMENTAL] — set CONSTELLATION_ENABLED = false to hide, or remove import + <ThoughtConstellation> from page.tsx
 
 "use client";
 
@@ -13,16 +6,11 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import type { JournalEntry } from "@/types";
 import { JournalEntryCard } from "@/components/JournalEntryCard";
 
-// [EXPERIMENTAL] Master switch
 const CONSTELLATION_ENABLED = true;
-
-// [EXPERIMENTAL] Min entries before attempting concept extraction
 const MIN_ENTRIES = 3;
-
-// [EXPERIMENTAL] Bump this string to invalidate all cached concepts
+// Bump to invalidate all cached concepts in localStorage
 const CACHE_VERSION = "v2";
 
-// [EXPERIMENTAL] Concept node as returned by /api/concepts
 interface ConceptNode {
   id: string;
   label: string;
@@ -32,7 +20,6 @@ interface ConceptNode {
   relatedIds: string[];
 }
 
-// [EXPERIMENTAL] Node with computed visual properties
 interface PlacedNode extends ConceptNode {
   x: number;
   y: number;
@@ -44,19 +31,18 @@ interface PlacedNode extends ConceptNode {
 const W = 560;
 const H = 420;
 
-// [EXPERIMENTAL] Palette matches app word cloud palette
 const PALETTE = [
-  "#5eead4", // teal
-  "#a78bfa", // violet
-  "#fb7185", // rose
-  "#60a5fa", // sky
-  "#34d399", // emerald
-  "#fbbf24", // amber
-  "#f472b6", // pink
-  "#c084fc", // purple
+  "#5eead4",
+  "#a78bfa",
+  "#fb7185",
+  "#60a5fa",
+  "#34d399",
+  "#fbbf24",
+  "#f472b6",
+  "#c084fc",
 ];
 
-// [EXPERIMENTAL] CSS float keyframes — pure CSS, injected once
+// Pure CSS float keyframes — injected once via <style> so animations survive SVG re-renders
 const FLOAT_CSS = `
   @keyframes cf0{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
   @keyframes cf1{0%,100%{transform:translateY(-1px)}50%{transform:translateY(-9px)}}
@@ -70,7 +56,7 @@ const FLOAT_CSS = `
   .cf4{animation:cf4 6.7s ease-in-out 1.6s infinite}
 `;
 
-// [EXPERIMENTAL] Golden-angle spiral layout, most frequent node at center
+// Golden-angle spiral layout — most frequent node at center
 function computePositions(nodes: ConceptNode[]): PlacedNode[] {
   const sorted = [...nodes].sort((a, b) => b.frequency - a.frequency);
 
@@ -87,7 +73,6 @@ function computePositions(nodes: ConceptNode[]): PlacedNode[] {
       y = Math.max(84, Math.min(H - 84, H / 2 + spiral * Math.sin(angle) * 0.62));
     }
 
-    // Node radius: bigger base, scales with frequency
     const r = 40 + Math.min(node.frequency - 1, 9) * 4;
 
     return {
@@ -99,7 +84,6 @@ function computePositions(nodes: ConceptNode[]): PlacedNode[] {
   });
 }
 
-// [EXPERIMENTAL] Deduplicated edge list
 function buildEdges(nodes: PlacedNode[]): Array<[PlacedNode, PlacedNode]> {
   const posMap = new Map(nodes.map((n) => [n.id, n]));
   const seen = new Set<string>();
@@ -116,7 +100,6 @@ function buildEdges(nodes: PlacedNode[]): Array<[PlacedNode, PlacedNode]> {
   return edges;
 }
 
-// [EXPERIMENTAL] localStorage cache helpers
 function cacheKey(entries: JournalEntry[]): string {
   const ids = entries.filter((e) => e.id != null).map((e) => e.id).sort().join(",");
   return `cathart_concepts_${CACHE_VERSION}_${ids}`;
@@ -133,10 +116,7 @@ function writeCache(key: string, concepts: ConceptNode[]): void {
   try { localStorage.setItem(key, JSON.stringify(concepts)); } catch { /* quota exceeded */ }
 }
 
-// ─────────────────────────────────────────────────────────────
-// [EXPERIMENTAL] SVG label — splits at spaces and hyphens so
-// each word fits within the node circle at a computed font size.
-// ─────────────────────────────────────────────────────────────
+// SVG label — splits at spaces/hyphens and computes font size so text fits within the node circle
 function NodeLabel({ label, r }: { label: string; r: number }) {
   // Split at spaces and hyphens so no single line overflows the diameter
   const words = label.split(/[\s-]+/).filter(Boolean);
@@ -175,9 +155,6 @@ function NodeLabel({ label, r }: { label: string; r: number }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────
-// [EXPERIMENTAL] Concept detail panel with expandable entries
-// ─────────────────────────────────────────────────────────────
 function ConceptDetail({
   node,
   entries,
@@ -227,11 +204,7 @@ function ConceptDetail({
   );
 }
 
-// ─────────────────────────────────────────────────────────────
-// [EXPERIMENTAL] Inner constellation (all hooks live here)
-// Separated so the outer component can early-return without
-// violating React's rules-of-hooks.
-// ─────────────────────────────────────────────────────────────
+// Separated from the public export so the outer component can early-return without violating rules-of-hooks
 function ConstellationInner({ entries }: { entries: JournalEntry[] }) {
   const [concepts, setConcepts] = useState<ConceptNode[]>([]);
   const [loading, setLoading] = useState(false);
@@ -327,7 +300,6 @@ function ConstellationInner({ entries }: { entries: JournalEntry[] }) {
         role="img"
         style={{ overflow: "visible" }}
       >
-        {/* [EXPERIMENTAL] Connecting lines — drawn first, behind nodes */}
         {edges.map(([a, b], i) => {
           const lit = hoveredId === a.id || hoveredId === b.id
                     || selectedId === a.id || selectedId === b.id;
@@ -342,7 +314,6 @@ function ConstellationInner({ entries }: { entries: JournalEntry[] }) {
           );
         })}
 
-        {/* [EXPERIMENTAL] Nodes */}
         {placed.map((node) => {
           const isHovered  = hoveredId === node.id;
           const isSelected = selectedId === node.id;
@@ -388,7 +359,6 @@ function ConstellationInner({ entries }: { entries: JournalEntry[] }) {
         })}
       </svg>
 
-      {/* [EXPERIMENTAL] Selected node detail panel */}
       {selectedNode && (
         <ConceptDetail node={selectedNode} entries={entries} onClose={() => setSelectedId(null)} />
       )}
@@ -400,9 +370,6 @@ function ConstellationInner({ entries }: { entries: JournalEntry[] }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────
-// [EXPERIMENTAL] Public export — gate wraps inner component
-// ─────────────────────────────────────────────────────────────
 export function ThoughtConstellation({ entries }: { entries: JournalEntry[] }) {
   if (!CONSTELLATION_ENABLED) return null;
   return <ConstellationInner entries={entries} />;

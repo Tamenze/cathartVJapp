@@ -59,9 +59,8 @@ export async function POST(req: NextRequest) {
       response_format: "json",
     });
 
-    // Reject silent / near-empty recordings without charging quota.
-    // Whisper hallucinates short phrases (e.g. "Thank you.") for silent audio,
-    // so require at least 2 distinct words, not just a non-empty string.
+    // Whisper hallucinates short phrases (e.g. "Thank you.") for silent audio —
+    // require at least 5 words so near-empty recordings are rejected without charging quota.
     const wordCount = transcription.text.trim().split(/\s+/).filter(Boolean).length;
     if (wordCount < 5) {
       log.info("recording_rejected_no_speech", { durationSeconds, wordCount });

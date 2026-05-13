@@ -43,7 +43,6 @@ export function RecordButton({
   const isStopped    = state === "stopped";
   const isDisabled   = isBlocked || isProcessing;
 
-  // ── Stopped (review) state ──────────────────────────────────────────────
   if (isStopped) {
     return (
       <div className="flex flex-col items-center gap-4">
@@ -69,7 +68,6 @@ export function RecordButton({
     );
   }
 
-  // ── Main circular button label ──────────────────────────────────────────
   const label = isProcessing
     ? "Processing…"
     : isRecording
@@ -102,7 +100,6 @@ export function RecordButton({
 
   return (
     <div className="flex flex-col items-center gap-5">
-      {/* Main circle button */}
       <div className="relative">
         <button
           onClick={isRecording ? onStop : isPaused ? onStop : onStart}
@@ -116,7 +113,6 @@ export function RecordButton({
         </button>
       </div>
 
-      {/* Timer + visualizer + controls */}
       {(isRecording || isPaused) && (
         <div className="flex flex-col items-center gap-3">
           {isRecording && (
@@ -131,7 +127,6 @@ export function RecordButton({
             </p>
           </div>
 
-          {/* Pause / Resume */}
           {isRecording ? (
             <button
               onClick={onPause}
