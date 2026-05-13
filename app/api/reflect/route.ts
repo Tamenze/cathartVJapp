@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Groq from "groq-sdk";
+import * as Sentry from "@sentry/nextjs";
+import { Logger } from "next-axiom";
 import type { ReflectResponse } from "@/types";
 
 function getGroq() {
@@ -69,6 +71,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "userId required" }, { status: 400 });
   }
 
+  const log = new Logger().with({ userId });
+
   if (transcript.trim().length < 10) {
     return NextResponse.json({
       summary: "A brief moment of reflection",
@@ -104,10 +108,16 @@ export async function POST(req: NextRequest) {
       category: parsed.category ?? "reflection",
     } satisfies ReflectResponse;
 
-    console.log(JSON.stringify({ event: "reflection_completed", category: result.category }));
+    log.info("reflection_completed", { category: result.category });
+    await log.flush();
     return NextResponse.json(result);
   } catch (err) {
-    console.error(JSON.stringify({ event: "reflection_failed", error: err instanceof Error ? err.message : "unknown" }));
+    log.error("reflection_failed", { error: err instanceof Error ? err.message : "unknown" });
+    await log.flush();
+    Sentry.withScope((scope) => {
+      scope.setUser({ id: userId });
+      Sentry.captureException(err);
+    });
     return NextResponse.json(
       { error: "Reflection generation failed." },
       { status: 500 }

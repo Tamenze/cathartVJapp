@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Groq, { toFile } from "groq-sdk";
+import * as Sentry from "@sentry/nextjs";
+import { Logger } from "next-axiom";
 import { getQuota, incrementQuota, secondsToMinutes } from "@/lib/quota";
 import { getIpHash } from "@/lib/ipHash";
 
@@ -22,6 +24,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid duration" }, { status: 400 });
   }
 
+  const userAgent = req.headers.get("user-agent") ?? "unknown";
+  const log = new Logger().with({ userId, userAgent });
+
   const ipHash = getIpHash(req);
   const compositeId = `${userId}:${ipHash}`;
   const minutesUsed = secondsToMinutes(durationSeconds);
@@ -36,7 +41,8 @@ export async function POST(req: NextRequest) {
   }
 
   if (quota.isBlocked || quota.allowedMinutes < minutesUsed * 0.9) {
-    console.log(JSON.stringify({ event: "quota_hit", durationSeconds, minutesUsed }));
+    log.warn("quota_hit", { durationSeconds, minutesUsed });
+    await log.flush();
     return NextResponse.json(
       { error: "Daily reflection limit reached. Try again tomorrow." },
       { status: 429 }
@@ -58,7 +64,8 @@ export async function POST(req: NextRequest) {
     // so require at least 2 distinct words, not just a non-empty string.
     const wordCount = transcription.text.trim().split(/\s+/).filter(Boolean).length;
     if (wordCount < 5) {
-      console.log(JSON.stringify({ event: "recording_rejected_no_speech", durationSeconds, wordCount }));
+      log.info("recording_rejected_no_speech", { durationSeconds, wordCount });
+      await log.flush();
       return NextResponse.json(
         { error: "No speech detected in this recording." },
         { status: 422 }
@@ -70,13 +77,20 @@ export async function POST(req: NextRequest) {
       console.error("Quota increment failed:", err)
     );
 
-    console.log(JSON.stringify({ event: "recording_submitted", durationSeconds, wordCount, minutesUsed }));
+    log.info("recording_submitted", { durationSeconds, wordCount, minutesUsed });
+    await log.flush();
     return NextResponse.json({
       transcript: transcription.text,
       minutesUsed,
     });
   } catch (err) {
-    console.error("Transcription error:", err);
+    log.error("transcription_failed", { error: err instanceof Error ? err.message : "unknown" });
+    await log.flush();
+    Sentry.withScope((scope) => {
+      scope.setUser({ id: userId });
+      scope.setContext("recording", { durationSeconds, minutesUsed, userAgent });
+      Sentry.captureException(err);
+    });
     return NextResponse.json(
       { error: "Transcription failed. Please try again." },
       { status: 500 }

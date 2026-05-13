@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import * as Sentry from "@sentry/nextjs";
 import { db } from "@/lib/db";
 import { getUserId } from "@/lib/userId";
 import { useQuota } from "@/hooks/useQuota";
@@ -48,6 +49,12 @@ export default function Home() {
       refreshQuota();
     }
   }, [refreshQuota]);
+
+  // Attach anonymous user ID to Sentry — no PII, just the local UUID
+  useEffect(() => {
+    Sentry.setUser({ id: getUserId() });
+    return () => Sentry.setUser(null);
+  }, []);
 
   const maxSeconds = Math.floor(quota.allowedMinutes * 60);
 
