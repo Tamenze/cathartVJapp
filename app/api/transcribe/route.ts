@@ -6,7 +6,7 @@ import { getQuota, incrementQuota, secondsToMinutes } from "@/lib/quota";
 import { getIpHash } from "@/lib/ipHash";
 
 function getGroq() {
-  return new Groq({ apiKey: process.env.GROQ_API_KEY });
+  return new Groq({ apiKey: process.env.GROQ_API_KEY, timeout: 240_000 });
 }
 
 export async function POST(req: NextRequest) {
@@ -83,7 +83,14 @@ export async function POST(req: NextRequest) {
       minutesUsed,
     });
   } catch (err) {
-    log.error("transcription_failed", { error: err instanceof Error ? err.message : "unknown" });
+    const isTimeout = err instanceof Error && (
+      err.name === "APITimeoutError" || err.message.toLowerCase().includes("timeout")
+    );
+    log.error("transcription_failed", {
+      error: err instanceof Error ? err.message : "unknown",
+      errorName: err instanceof Error ? err.name : "unknown",
+      isTimeout,
+    });
     await log.flush();
     Sentry.withScope((scope) => {
       scope.setUser({ id: userId });
@@ -91,11 +98,13 @@ export async function POST(req: NextRequest) {
       Sentry.captureException(err);
     });
     return NextResponse.json(
-      { error: "Transcription failed. Please try again." },
+      { error: isTimeout
+          ? "Transcription timed out — please try resubmitting."
+          : "Transcription failed. Please try again." },
       { status: 500 }
     );
   }
 }
 
 // Increase the body size limit for audio uploads (25MB = Groq Whisper max)
-export const maxDuration = 60;
+export const maxDuration = 300;

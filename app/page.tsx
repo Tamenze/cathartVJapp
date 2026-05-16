@@ -16,7 +16,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { InfoModal } from "@/components/InfoModal";
 import type { JournalEntry, ReflectResponse } from "@/types";
 
-type PageState = "idle" | "recording" | "processing" | "reflect-retry" | "done" | "error" | "no-speech";
+type PageState = "idle" | "recording" | "processing" | "transcribe-retry" | "reflect-retry" | "done" | "error" | "no-speech";
 type View = "journal" | "patterns" | "words";
 
 const TABS: { id: View; label: string }[] = [
@@ -40,6 +40,7 @@ export default function Home() {
   const [filterPage, setFilterPage] = useState(0);
   const [journalPage, setJournalPage] = useState(0);
   const pendingRef = useRef<{ transcript: string; durationSeconds: number } | null>(null);
+  const pendingAudioRef = useRef<{ blob: Blob; durationSeconds: number } | null>(null);
 
   const quotaLoadedRef = useRef(false);
   useEffect(() => {
@@ -111,6 +112,7 @@ export default function Home() {
 
   const handleRecordingComplete = useCallback(
     async (blob: Blob, durationSeconds: number) => {
+      pendingAudioRef.current = { blob, durationSeconds };
       setErrorMsg(null);
       setPageState("processing");
       const userId = getUserId();
@@ -121,11 +123,15 @@ export default function Home() {
       formData.append("durationSeconds", String(durationSeconds));
 
       let transcript: string;
+      const controller = new AbortController();
+      // Abort 30s before the server's maxDuration so we get a handled error, not a connection reset
+      const abortTimer = setTimeout(() => controller.abort(), 270_000);
       try {
-        const res = await fetch("/api/transcribe", { method: "POST", body: formData });
+        const res = await fetch("/api/transcribe", { method: "POST", body: formData, signal: controller.signal });
         const body = await res.json().catch(() => ({}));
         if (res.status === 422) {
           // No speech detected — quota not charged; guide user to re-record
+          pendingAudioRef.current = null;
           setErrorMsg((body as { error?: string }).error ?? "No speech detected.");
           setPageState("no-speech");
           return;
@@ -135,11 +141,17 @@ export default function Home() {
         }
         transcript = (body as { transcript: string }).transcript;
       } catch (err) {
-        setErrorMsg(err instanceof Error ? err.message : "Transcription failed. Please try again.");
-        setPageState("error");
+        const msg = err instanceof DOMException && err.name === "AbortError"
+          ? "Transcription timed out — tap Resubmit to try again."
+          : err instanceof Error ? err.message : "Transcription failed. Please try again.";
+        setErrorMsg(msg);
+        setPageState("transcribe-retry");
         return;
+      } finally {
+        clearTimeout(abortTimer);
       }
 
+      pendingAudioRef.current = null;
       pendingRef.current = { transcript, durationSeconds };
       await runReflectAndSave(transcript, durationSeconds);
     },
@@ -199,12 +211,14 @@ export default function Home() {
     setPageState("idle");
     setErrorMsg(null);
     pendingRef.current = null;
+    pendingAudioRef.current = null;
   }, [recorder]);
   const handleReset    = useCallback(() => {
     recorder.reset();
     setPageState("idle");
     setErrorMsg(null);
     pendingRef.current = null;
+    pendingAudioRef.current = null;
   }, [recorder]);
 
   const handleDeleteEntry = useCallback(async (id: number) => {
@@ -217,6 +231,12 @@ export default function Home() {
     setEntries([]);
     setDeleteAllConfirm(false);
   }, []);
+
+  const handleRetryTranscription = useCallback(async () => {
+    if (!pendingAudioRef.current) return;
+    const { blob, durationSeconds } = pendingAudioRef.current;
+    await handleRecordingComplete(blob, durationSeconds);
+  }, [handleRecordingComplete]);
 
   const handleRetryReflection = useCallback(async () => {
     if (!pendingRef.current) return;
@@ -278,6 +298,25 @@ export default function Home() {
             onSubmit={handleSubmit}
             onRerecord={handleRerecord}
           />
+
+          {pageState === "transcribe-retry" && (
+            <div className="space-y-3 text-center max-w-xs">
+              <p className="text-amber-400 text-sm">
+                {errorMsg ?? "Transcription failed — your recording is still here."}
+              </p>
+              <div className="flex items-center justify-center gap-4">
+                <button
+                  onClick={handleRetryTranscription}
+                  className="text-sm px-4 py-1.5 rounded-full bg-teal-500/15 border border-teal-500/40 text-teal-400 hover:bg-teal-500/25 transition-colors"
+                >
+                  Resubmit recording
+                </button>
+                <button onClick={handleReset} className="text-stone-500 text-xs underline underline-offset-2 hover:text-stone-300">
+                  Discard
+                </button>
+              </div>
+            </div>
+          )}
 
           {pageState === "reflect-retry" && (
             <div className="space-y-3 text-center max-w-xs">
