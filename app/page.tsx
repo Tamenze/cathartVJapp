@@ -540,8 +540,19 @@ export default function Home() {
 
       </div>
 
-      <footer className="py-4 text-center">
+      <footer className="py-4 text-center space-y-1">
         <p className="text-stone-600 text-xs">All entries stored only on this device.</p>
+        <p className="text-stone-600 text-xs">
+          Made by{" "}
+          <a
+            href="https://tamenze.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-stone-500 transition-colors"
+          >
+            Tolu
+          </a>
+        </p>
       </footer>
 
       {showInfo && <InfoModal onClose={() => setShowInfo(false)} />}
